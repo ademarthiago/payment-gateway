@@ -20,12 +20,12 @@ type ProcessRefundInput struct {
 }
 
 type ProcessRefundOutput struct {
-	TransactionID uuid.UUID
-	PaymentID     uuid.UUID
-	Amount        int64
-	Currency      string
-	Status        string
-	CreatedAt     time.Time
+	TransactionID uuid.UUID `json:"transaction_id"`
+	PaymentID     uuid.UUID `json:"payment_id"`
+	Amount        int64     `json:"amount"`
+	Currency      string    `json:"currency"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type ProcessRefundUseCase struct {

@@ -25,6 +25,7 @@ func NewRouter(
 
 	// Health check
 	r.Get("/health", healthHandler.Handle)
+	r.Head("/health", healthHandler.Handle)
 
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {
