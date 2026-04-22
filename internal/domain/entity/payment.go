@@ -99,13 +99,13 @@ func (p *Payment) AddTransaction(t *Transaction) {
 }
 
 // Getters
-func (p *Payment) ID() uuid.UUID                    { return p.id }
-func (p *Payment) ExternalID() string               { return p.externalID }
-func (p *Payment) Money() valueobject.Money         { return p.money }
+func (p *Payment) ID() uuid.UUID                     { return p.id }
+func (p *Payment) ExternalID() string                { return p.externalID }
+func (p *Payment) Money() valueobject.Money          { return p.money }
 func (p *Payment) Status() valueobject.PaymentStatus { return p.status }
-func (p *Payment) Provider() string                 { return p.provider }
-func (p *Payment) Description() string              { return p.description }
-func (p *Payment) Metadata() map[string]any         { return p.metadata }
-func (p *Payment) Transactions() []*Transaction     { return p.transactions }
-func (p *Payment) CreatedAt() time.Time             { return p.createdAt }
-func (p *Payment) UpdatedAt() time.Time             { return p.updatedAt }
+func (p *Payment) Provider() string                  { return p.provider }
+func (p *Payment) Description() string               { return p.description }
+func (p *Payment) Metadata() map[string]any          { return p.metadata }
+func (p *Payment) Transactions() []*Transaction      { return p.transactions }
+func (p *Payment) CreatedAt() time.Time              { return p.createdAt }
+func (p *Payment) UpdatedAt() time.Time              { return p.updatedAt }

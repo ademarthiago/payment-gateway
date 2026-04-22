@@ -53,25 +53,6 @@ type createPaymentResponse struct {
 	CreatedAt  time.Time `json:"created_at"`
 }
 
-type getPaymentResponse struct {
-	ID         uuid.UUID `json:"id"`
-	ExternalID string    `json:"external_id"`
-	Amount     int64     `json:"amount"`
-	Currency   string    `json:"currency"`
-	Status     string    `json:"status"`
-	Provider   string    `json:"provider"`
-	CreatedAt  time.Time `json:"created_at"`
-}
-
-type refundResponse struct {
-	TransactionID uuid.UUID `json:"transaction_id"`
-	PaymentID     uuid.UUID `json:"payment_id"`
-	Amount        int64     `json:"amount"`
-	Currency      string    `json:"currency"`
-	Status        string    `json:"status"`
-	CreatedAt     time.Time `json:"created_at"`
-}
-
 type errorResponse struct {
 	Error string `json:"error"`
 }

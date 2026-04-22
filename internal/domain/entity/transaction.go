@@ -69,12 +69,12 @@ func (t *Transaction) Complete() {
 }
 
 // Getters
-func (t *Transaction) ID() uuid.UUID                    { return t.id }
-func (t *Transaction) PaymentID() uuid.UUID             { return t.paymentID }
-func (t *Transaction) Type() TransactionType            { return t.txType }
-func (t *Transaction) Amount() valueobject.Money        { return t.amount }
+func (t *Transaction) ID() uuid.UUID                     { return t.id }
+func (t *Transaction) PaymentID() uuid.UUID              { return t.paymentID }
+func (t *Transaction) Type() TransactionType             { return t.txType }
+func (t *Transaction) Amount() valueobject.Money         { return t.amount }
 func (t *Transaction) Status() valueobject.PaymentStatus { return t.status }
-func (t *Transaction) ProviderRef() string              { return t.providerRef }
-func (t *Transaction) ErrorMsg() string                 { return t.errorMsg }
-func (t *Transaction) Metadata() map[string]any         { return t.metadata }
-func (t *Transaction) CreatedAt() time.Time             { return t.createdAt }
+func (t *Transaction) ProviderRef() string               { return t.providerRef }
+func (t *Transaction) ErrorMsg() string                  { return t.errorMsg }
+func (t *Transaction) Metadata() map[string]any          { return t.metadata }
+func (t *Transaction) CreatedAt() time.Time              { return t.createdAt }
