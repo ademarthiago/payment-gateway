@@ -79,7 +79,7 @@ func (h *PaymentHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 // @Tags         payments
 // @Produce      json
 // @Param        id path string true "Payment ID"
-// @Success      200 {object} getPaymentResponse
+// @Success      200 {object} usecase.GetPaymentOutput
 // @Failure      404 {object} errorResponse
 // @Router       /payments/{id} [get]
 func (h *PaymentHandler) GetPayment(w http.ResponseWriter, r *http.Request) {
@@ -109,7 +109,7 @@ func (h *PaymentHandler) GetPayment(w http.ResponseWriter, r *http.Request) {
 // @Produce      json
 // @Param        id path string true "Payment ID"
 // @Param        request body refundRequest true "Refund request"
-// @Success      200 {object} refundResponse
+// @Success      200 {object} usecase.ProcessRefundOutput
 // @Failure      400 {object} errorResponse
 // @Failure      404 {object} errorResponse
 // @Router       /payments/{id}/refund [post]

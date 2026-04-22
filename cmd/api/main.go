@@ -1,5 +1,11 @@
 package main
 
+// @title          Payment Gateway API
+// @version        1.0
+// @description    A payment gateway POC built with Go and Hexagonal Architecture
+// @host           localhost:8088
+// @BasePath       /api/v1
+
 import (
 	"context"
 	"fmt"
