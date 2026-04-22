@@ -5,9 +5,10 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/ademarthiago/payment-gateway/internal/usecase"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+
+	"github.com/ademarthiago/payment-gateway/internal/usecase"
 )
 
 type PaymentHandler struct {

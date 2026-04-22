@@ -8,13 +8,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
+
 	adapterhttp "github.com/ademarthiago/payment-gateway/internal/adapter/http"
 	"github.com/ademarthiago/payment-gateway/internal/adapter/http/handler"
 	"github.com/ademarthiago/payment-gateway/internal/domain/entity"
 	"github.com/ademarthiago/payment-gateway/internal/domain/port/mock"
 	"github.com/ademarthiago/payment-gateway/internal/domain/valueobject"
 	"github.com/ademarthiago/payment-gateway/internal/usecase"
-	"github.com/google/uuid"
 )
 
 func buildRouter(t *testing.T, paymentRepo *mock.PaymentRepositoryMock) http.Handler {

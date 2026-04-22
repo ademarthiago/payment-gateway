@@ -9,6 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
+	"github.com/rs/zerolog/log"
+
 	"github.com/ademarthiago/payment-gateway/internal/adapter/event"
 	adapterhttp "github.com/ademarthiago/payment-gateway/internal/adapter/http"
 	"github.com/ademarthiago/payment-gateway/internal/adapter/http/handler"
@@ -17,8 +20,6 @@ import (
 	"github.com/ademarthiago/payment-gateway/internal/domain/port"
 	"github.com/ademarthiago/payment-gateway/internal/usecase"
 	"github.com/ademarthiago/payment-gateway/pkg/logger"
-	"github.com/joho/godotenv"
-	"github.com/rs/zerolog/log"
 )
 
 var version = "dev"

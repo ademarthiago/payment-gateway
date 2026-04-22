@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ademarthiago/payment-gateway/internal/domain/port"
 	"github.com/rs/zerolog/log"
+
+	"github.com/ademarthiago/payment-gateway/internal/domain/port"
 )
 
 // ChannelPublisher publishes events via Go channels (in-process)

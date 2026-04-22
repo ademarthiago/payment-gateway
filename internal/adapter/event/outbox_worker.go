@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/ademarthiago/payment-gateway/internal/domain/port"
 	"github.com/rs/zerolog/log"
+
+	"github.com/ademarthiago/payment-gateway/internal/domain/port"
 )
 
 // OutboxWorker polls the outbox table and publishes pending events

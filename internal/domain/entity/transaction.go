@@ -4,8 +4,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/ademarthiago/payment-gateway/internal/domain/valueobject"
 	"github.com/google/uuid"
+
+	"github.com/ademarthiago/payment-gateway/internal/domain/valueobject"
 )
 
 // TransactionType represents the type of a transaction

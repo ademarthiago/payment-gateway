@@ -3,8 +3,9 @@ package mock
 import (
 	"context"
 
-	"github.com/ademarthiago/payment-gateway/internal/domain/entity"
 	"github.com/google/uuid"
+
+	"github.com/ademarthiago/payment-gateway/internal/domain/entity"
 )
 
 type PaymentRepositoryMock struct {

@@ -3,8 +3,9 @@ package event
 import (
 	"context"
 
-	"github.com/ademarthiago/payment-gateway/internal/domain/port"
 	"github.com/rs/zerolog/log"
+
+	"github.com/ademarthiago/payment-gateway/internal/domain/port"
 )
 
 // Dispatcher reads events from channel and routes to registered handlers

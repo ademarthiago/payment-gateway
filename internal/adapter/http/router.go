@@ -3,10 +3,11 @@ package http
 import (
 	"net/http"
 
-	"github.com/ademarthiago/payment-gateway/internal/adapter/http/handler"
-	"github.com/ademarthiago/payment-gateway/internal/adapter/http/middleware"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+
+	"github.com/ademarthiago/payment-gateway/internal/adapter/http/handler"
+	"github.com/ademarthiago/payment-gateway/internal/adapter/http/middleware"
 )
 
 func NewRouter(

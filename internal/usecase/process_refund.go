@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/ademarthiago/payment-gateway/internal/domain/entity"
 	"github.com/ademarthiago/payment-gateway/internal/domain/port"
 	"github.com/ademarthiago/payment-gateway/internal/domain/valueobject"
-	"github.com/google/uuid"
 )
 
 type ProcessRefundInput struct {

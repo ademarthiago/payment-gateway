@@ -3,8 +3,9 @@ package port
 import (
 	"context"
 
-	"github.com/ademarthiago/payment-gateway/internal/domain/entity"
 	"github.com/google/uuid"
+
+	"github.com/ademarthiago/payment-gateway/internal/domain/entity"
 )
 
 // PaymentRepository defines the contract for payment persistence

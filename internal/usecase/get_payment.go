@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/ademarthiago/payment-gateway/internal/domain/entity"
 	"github.com/ademarthiago/payment-gateway/internal/domain/port"
-	"github.com/google/uuid"
 )
 
 var ErrPaymentNotFound = errors.New("payment not found")

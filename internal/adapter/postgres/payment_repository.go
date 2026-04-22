@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ademarthiago/payment-gateway/internal/domain/entity"
-	"github.com/ademarthiago/payment-gateway/internal/domain/valueobject"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/ademarthiago/payment-gateway/internal/domain/entity"
+	"github.com/ademarthiago/payment-gateway/internal/domain/valueobject"
 )
 
 type PaymentRepository struct {
