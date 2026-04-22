@@ -6,36 +6,35 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/ademarthiago/payment-gateway/internal/domain/entity"
 	"github.com/ademarthiago/payment-gateway/internal/domain/port"
+	"github.com/google/uuid"
 )
 
 var ErrPaymentNotFound = errors.New("payment not found")
 
 type GetPaymentOutput struct {
-	ID           uuid.UUID
-	ExternalID   string
-	Amount       int64
-	Currency     string
-	Status       string
-	Provider     string
-	Description  string
-	Metadata     map[string]any
-	Transactions []TransactionOutput
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID           uuid.UUID           `json:"id"`
+	ExternalID   string              `json:"external_id"`
+	Amount       int64               `json:"amount"`
+	Currency     string              `json:"currency"`
+	Status       string              `json:"status"`
+	Provider     string              `json:"provider"`
+	Description  string              `json:"description"`
+	Metadata     map[string]any      `json:"metadata"`
+	Transactions []TransactionOutput `json:"transactions"`
+	CreatedAt    time.Time           `json:"created_at"`
+	UpdatedAt    time.Time           `json:"updated_at"`
 }
 
 type TransactionOutput struct {
-	ID          uuid.UUID
-	Type        string
-	Amount      int64
-	Currency    string
-	Status      string
-	ProviderRef string
-	CreatedAt   time.Time
+	ID          uuid.UUID `json:"id"`
+	Type        string    `json:"type"`
+	Amount      int64     `json:"amount"`
+	Currency    string    `json:"currency"`
+	Status      string    `json:"status"`
+	ProviderRef string    `json:"provider_ref"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type GetPaymentUseCase struct {

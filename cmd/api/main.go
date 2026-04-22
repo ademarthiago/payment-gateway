@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ademarthiago/payment-gateway/internal/adapter/event"
+	"github.com/ademarthiago/payment-gateway/internal/infrastructure/migration"
 	adapterhttp "github.com/ademarthiago/payment-gateway/internal/adapter/http"
 	"github.com/ademarthiago/payment-gateway/internal/adapter/http/handler"
 	"github.com/ademarthiago/payment-gateway/internal/adapter/postgres"
@@ -44,6 +46,18 @@ func main() {
 	}
 	defer pgPool.Close()
 	log.Info().Msg("postgres connected")
+
+	// Run migrations
+	migrationDSN := fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=%s&search_path=payment,public",
+		os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_HOST"), os.Getenv("DB_PORT"),
+		os.Getenv("DB_NAME"), os.Getenv("DB_SSL_MODE"),
+	)
+	if err := migration.Run(migrationDSN); err != nil {
+		log.Fatal().Err(err).Msg("failed to run migrations")
+	}
+	log.Info().Msg("migrations applied")
 
 	// Redis
 	redisClient, err := adapterredis.NewClient(ctx)
