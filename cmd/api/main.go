@@ -14,12 +14,12 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/ademarthiago/payment-gateway/internal/adapter/event"
-	"github.com/ademarthiago/payment-gateway/internal/infrastructure/migration"
 	adapterhttp "github.com/ademarthiago/payment-gateway/internal/adapter/http"
 	"github.com/ademarthiago/payment-gateway/internal/adapter/http/handler"
 	"github.com/ademarthiago/payment-gateway/internal/adapter/postgres"
 	adapterredis "github.com/ademarthiago/payment-gateway/internal/adapter/redis"
 	"github.com/ademarthiago/payment-gateway/internal/domain/port"
+	"github.com/ademarthiago/payment-gateway/internal/infrastructure/migration"
 	"github.com/ademarthiago/payment-gateway/internal/usecase"
 	"github.com/ademarthiago/payment-gateway/pkg/logger"
 )
