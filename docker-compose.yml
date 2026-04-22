@@ -1,0 +1,118 @@
+name: payment-gateway
+
+services:
+  # =============================================================================
+  # Application
+  # =============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: payment-gateway-app
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      APP_PORT: ${APP_PORT:-8088}
+      APP_NAME: ${APP_NAME:-payment-gateway}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-payment_gateway}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_SSL_MODE: ${DB_SSL_MODE:-disable}
+      DB_MAX_OPEN_CONNS: ${DB_MAX_OPEN_CONNS:-25}
+      DB_MAX_IDLE_CONNS: ${DB_MAX_IDLE_CONNS:-5}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+      IDEMPOTENCY_TTL: ${IDEMPOTENCY_TTL:-86400}
+      OUTBOX_WORKER_INTERVAL_SECONDS: ${OUTBOX_WORKER_INTERVAL_SECONDS:-5}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - payment-network
+    volumes:
+      - ./migrations:/app/migrations:ro
+
+  # =============================================================================
+  # PostgreSQL
+  # =============================================================================
+  postgres:
+    image: postgres:16-bookworm
+    container_name: payment-gateway-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-payment_gateway}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-payment_gateway}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - payment-network
+
+  # =============================================================================
+  # Redis
+  # =============================================================================
+  redis:
+    image: redis:7-bookworm
+    container_name: payment-gateway-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - payment-network
+
+  # =============================================================================
+  # Swagger UI
+  # =============================================================================
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: payment-gateway-swagger
+    restart: unless-stopped
+    ports:
+      - "8089:8080"
+    environment:
+      SWAGGER_JSON: /docs/swagger.json
+    volumes:
+      - ./docs/swagger:/docs:ro
+    networks:
+      - payment-network
+
+# =============================================================================
+# Volumes & Networks
+# =============================================================================
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  payment-network:
+    driver: bridge
