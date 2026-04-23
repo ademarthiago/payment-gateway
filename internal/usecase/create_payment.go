@@ -1,3 +1,6 @@
+// Package usecase contains the application use cases.
+// Each use case orchestrates domain objects and ports to fulfill a single business operation.
+// No infrastructure details (SQL, Redis commands, HTTP) belong here.
 package usecase
 
 import (
@@ -13,6 +16,8 @@ import (
 	"github.com/ademarthiago/payment-gateway/internal/domain/valueobject"
 )
 
+// CreatePaymentInput carries the raw data from the HTTP layer.
+// Amounts come in as int64 cents — the use case is responsible for validating them.
 type CreatePaymentInput struct {
 	ExternalID  string
 	Amount      int64
@@ -22,6 +27,8 @@ type CreatePaymentInput struct {
 	Metadata    map[string]any
 }
 
+// CreatePaymentOutput is what the HTTP handler serializes back to the client.
+// We only expose what's needed for the creation response — full details go through GetPayment.
 type CreatePaymentOutput struct {
 	ID         uuid.UUID
 	ExternalID string
@@ -32,6 +39,8 @@ type CreatePaymentOutput struct {
 	CreatedAt  time.Time
 }
 
+// CreatePaymentUseCase handles payment creation with idempotency and event publishing.
+// Flow: idempotency check → domain creation → DB save → outbox write → Redis key → channel publish.
 type CreatePaymentUseCase struct {
 	paymentRepo      port.PaymentRepository
 	outboxRepo       port.OutboxRepository
@@ -39,6 +48,7 @@ type CreatePaymentUseCase struct {
 	eventPublisher   port.EventPublisher
 }
 
+// NewCreatePaymentUseCase wires the use case with its required ports.
 func NewCreatePaymentUseCase(
 	paymentRepo port.PaymentRepository,
 	outboxRepo port.OutboxRepository,
@@ -53,6 +63,9 @@ func NewCreatePaymentUseCase(
 	}
 }
 
+// Execute creates a new payment or returns the existing one if the idempotency key was already used.
+// The outbox write happens in the same flow as the DB save — if the process crashes after saving
+// the payment but before publishing the event, the outbox worker will deliver it on restart.
 func (uc *CreatePaymentUseCase) Execute(ctx context.Context, input CreatePaymentInput) (*CreatePaymentOutput, error) {
 	// Step 1: Idempotency check via Redis
 	idempotencyKey := fmt.Sprintf("payment:create:%s", input.ExternalID)

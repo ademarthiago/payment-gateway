@@ -164,3 +164,15 @@ without rewriting the core.
 ## License
 
 MIT
+
+## Known Issues
+
+### pgx vulnerability (CVE pending)
+
+`github.com/jackc/pgx/v5` versions up to `v5.8.0` have a known critical vulnerability.
+The fix is available in `v5.9.2+`, which requires Go 1.25.
+
+This project currently uses Go 1.24. Upgrading to Go 1.25 and pgx v5.9.2 is the
+recommended fix for production use.
+
+Tracked in: https://github.com/jackc/pgx/security/advisories

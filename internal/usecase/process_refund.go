@@ -1,3 +1,6 @@
+// Package usecase contains the application use cases.
+// Each use case orchestrates domain objects and ports to fulfill a single business operation.
+// No infrastructure details (SQL, Redis commands, HTTP) belong here.
 package usecase
 
 import (
@@ -13,12 +16,15 @@ import (
 	"github.com/ademarthiago/payment-gateway/internal/domain/valueobject"
 )
 
+// ProcessRefundInput carries the refund request data from the HTTP layer.
 type ProcessRefundInput struct {
 	PaymentID uuid.UUID
 	Amount    int64
 	Reason    string
 }
 
+// ProcessRefundOutput is what the HTTP handler serializes back after a successful refund.
+// The transaction starts as pending — actual money movement depends on the provider adapter.
 type ProcessRefundOutput struct {
 	TransactionID uuid.UUID `json:"transaction_id"`
 	PaymentID     uuid.UUID `json:"payment_id"`
@@ -28,12 +34,15 @@ type ProcessRefundOutput struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
+// ProcessRefundUseCase handles refund requests by validating the payment state,
+// recording the refund transaction, and emitting a "payment.refunded" event.
 type ProcessRefundUseCase struct {
 	paymentRepo    port.PaymentRepository
 	outboxRepo     port.OutboxRepository
 	eventPublisher port.EventPublisher
 }
 
+// NewProcessRefundUseCase wires the use case with its required ports.
 func NewProcessRefundUseCase(
 	paymentRepo port.PaymentRepository,
 	outboxRepo port.OutboxRepository,
@@ -46,6 +55,8 @@ func NewProcessRefundUseCase(
 	}
 }
 
+// Execute validates the payment is in a refundable state, records the refund transaction,
+// and writes the outbox event. Returns an error if the payment is not completed or already refunded.
 func (uc *ProcessRefundUseCase) Execute(ctx context.Context, input ProcessRefundInput) (*ProcessRefundOutput, error) {
 	// Step 1: Fetch payment
 	payment, err := uc.paymentRepo.FindByID(ctx, input.PaymentID)
@@ -56,12 +67,12 @@ func (uc *ProcessRefundUseCase) Execute(ctx context.Context, input ProcessRefund
 		return nil, ErrPaymentNotFound
 	}
 
-	// Step 2: Validate state transition
+	// Step 2: Validate state transition — only completed payments can be refunded
 	if err := payment.Transition(valueobject.PaymentStatusRefunded); err != nil {
 		return nil, fmt.Errorf("invalid refund: %w", err)
 	}
 
-	// Step 3: Build refund transaction
+	// Step 3: Build refund transaction using the same currency as the original payment
 	refundMoney, err := valueobject.NewMoney(input.Amount, payment.Money().Currency())
 	if err != nil {
 		return nil, fmt.Errorf("invalid refund amount: %w", err)

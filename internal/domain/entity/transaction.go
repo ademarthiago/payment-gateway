@@ -1,3 +1,5 @@
+// Package entity contains the core domain entities for the payment system.
+// Transaction records a single financial operation tied to a payment.
 package entity
 
 import (
@@ -9,16 +11,22 @@ import (
 	"github.com/ademarthiago/payment-gateway/internal/domain/valueobject"
 )
 
-// TransactionType represents the type of a transaction
+// TransactionType classifies what kind of money movement a transaction represents.
 type TransactionType string
 
 const (
-	TransactionTypeCharge     TransactionType = "charge"
-	TransactionTypeRefund     TransactionType = "refund"
+	// TransactionTypeCharge is created when we attempt to capture money from the customer.
+	TransactionTypeCharge TransactionType = "charge"
+	// TransactionTypeRefund is created when we return money to the customer after a completed charge.
+	TransactionTypeRefund TransactionType = "refund"
+	// TransactionTypeChargeback is created when the customer disputes a charge with their bank —
+	// this usually comes from a webhook from the provider, not from a direct API call.
 	TransactionTypeChargeback TransactionType = "chargeback"
 )
 
-// Transaction represents a financial transaction linked to a payment
+// Transaction represents a financial operation linked to a payment.
+// It's immutable after creation except for status — only Fail() and Complete() mutate it.
+// Transactions live inside the Payment aggregate and are never fetched independently.
 type Transaction struct {
 	id          uuid.UUID
 	paymentID   uuid.UUID
@@ -31,8 +39,11 @@ type Transaction struct {
 	createdAt   time.Time
 }
 
+// ErrInvalidTransactionType is returned when an unknown type is passed to NewTransaction.
 var ErrInvalidTransactionType = errors.New("invalid transaction type")
 
+// NewTransaction creates a transaction and validates the type.
+// All transactions start as pending — use Complete() or Fail() after the provider responds.
 func NewTransaction(
 	paymentID uuid.UUID,
 	txType TransactionType,
@@ -60,11 +71,13 @@ func NewTransaction(
 	}, nil
 }
 
+// Fail marks the transaction as failed and stores the provider error for debugging.
 func (t *Transaction) Fail(errMsg string) {
 	t.status = valueobject.PaymentStatusFailed
 	t.errorMsg = errMsg
 }
 
+// Complete marks the transaction as successfully processed by the provider.
 func (t *Transaction) Complete() {
 	t.status = valueobject.PaymentStatusCompleted
 }

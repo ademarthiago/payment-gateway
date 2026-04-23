@@ -1,3 +1,6 @@
+// Package event contains the in-process event infrastructure.
+// It has two parts: a channel-based publisher for immediate delivery,
+// and the OutboxWorker that guarantees delivery by polling the database.
 package event
 
 import (
@@ -9,14 +12,18 @@ import (
 	"github.com/ademarthiago/payment-gateway/internal/domain/port"
 )
 
-// OutboxWorker polls the outbox table and publishes pending events
-// This guarantees at-least-once delivery even if channel publish fails
+// OutboxWorker polls the outbox table and publishes pending events.
+// It's the durability safety net — if the channel publish fails or the process crashes
+// after writing to the DB but before the event was delivered, this worker picks it up.
+// Events may be delivered more than once (at-least-once), so downstream handlers must be idempotent.
 type OutboxWorker struct {
 	outboxRepo port.OutboxRepository
 	publisher  port.EventPublisher
 	interval   time.Duration
 }
 
+// NewOutboxWorker creates the worker with a configurable polling interval.
+// The interval is read from OUTBOX_WORKER_INTERVAL_SECONDS env at startup.
 func NewOutboxWorker(
 	outboxRepo port.OutboxRepository,
 	publisher port.EventPublisher,
@@ -29,6 +36,8 @@ func NewOutboxWorker(
 	}
 }
 
+// Start runs the polling loop in the calling goroutine.
+// It stops cleanly when ctx is cancelled (e.g. on SIGTERM during graceful shutdown).
 func (w *OutboxWorker) Start(ctx context.Context) {
 	log.Info().Dur("interval", w.interval).Msg("outbox worker started")
 

@@ -1,3 +1,5 @@
+// Package postgres contains PostgreSQL adapter implementations for the domain ports.
+// Each type here implements one or more interfaces from internal/domain/port.
 package postgres
 
 import (
@@ -15,14 +17,18 @@ import (
 	"github.com/ademarthiago/payment-gateway/internal/domain/valueobject"
 )
 
+// PaymentRepository implements port.PaymentRepository using PostgreSQL.
+// It uses a connection pool (pgxpool) so it's safe for concurrent use.
 type PaymentRepository struct {
 	pool *pgxpool.Pool
 }
 
+// NewPaymentRepository creates a repository backed by the given connection pool.
 func NewPaymentRepository(pool *pgxpool.Pool) *PaymentRepository {
 	return &PaymentRepository{pool: pool}
 }
 
+// Save inserts a new payment row. Does not insert transactions — those are handled separately.
 func (r *PaymentRepository) Save(ctx context.Context, p *entity.Payment) error {
 	metadata, err := json.Marshal(p.Metadata())
 	if err != nil {
@@ -39,6 +45,8 @@ func (r *PaymentRepository) Save(ctx context.Context, p *entity.Payment) error {
 	return err
 }
 
+// FindByID fetches a payment by its internal UUID. Returns nil, nil when not found.
+// Transactions are not loaded here — the caller fetches them separately if needed.
 func (r *PaymentRepository) FindByID(ctx context.Context, id uuid.UUID) (*entity.Payment, error) {
 	row := r.pool.QueryRow(ctx, `
 		SELECT id, external_id, amount, currency, status, provider, description, metadata, created_at, updated_at
@@ -46,6 +54,8 @@ func (r *PaymentRepository) FindByID(ctx context.Context, id uuid.UUID) (*entity
 	return scanPayment(row)
 }
 
+// FindByExternalID fetches a payment by the client-provided idempotency key.
+// Returns nil, nil when not found — the use case decides whether that's an error.
 func (r *PaymentRepository) FindByExternalID(ctx context.Context, externalID string) (*entity.Payment, error) {
 	row := r.pool.QueryRow(ctx, `
 		SELECT id, external_id, amount, currency, status, provider, description, metadata, created_at, updated_at
@@ -53,6 +63,7 @@ func (r *PaymentRepository) FindByExternalID(ctx context.Context, externalID str
 	return scanPayment(row)
 }
 
+// Update persists status and metadata changes. Only these two fields change after creation.
 func (r *PaymentRepository) Update(ctx context.Context, p *entity.Payment) error {
 	metadata, err := json.Marshal(p.Metadata())
 	if err != nil {
@@ -65,6 +76,8 @@ func (r *PaymentRepository) Update(ctx context.Context, p *entity.Payment) error
 	return err
 }
 
+// ExistsByExternalID does a cheap EXISTS check without fetching the full row.
+// Used as a quick pre-check before hitting Redis for idempotency.
 func (r *PaymentRepository) ExistsByExternalID(ctx context.Context, externalID string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,
@@ -73,6 +86,8 @@ func (r *PaymentRepository) ExistsByExternalID(ctx context.Context, externalID s
 	return exists, err
 }
 
+// scanPayment maps a single DB row into a Payment aggregate using ReconstitutPayment.
+// Returns nil, nil on pgx.ErrNoRows so callers can distinguish "not found" from real errors.
 func scanPayment(row pgx.Row) (*entity.Payment, error) {
 	var (
 		id          uuid.UUID
