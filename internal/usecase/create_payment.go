@@ -139,9 +139,12 @@ func (uc *CreatePaymentUseCase) Execute(ctx context.Context, input CreatePayment
 
 	// Step 5: Set idempotency key in Redis
 	idempotencyValue, err := json.Marshal(payment.ID())
-	if err := uc.idempotencyStore.Set(ctx, idempotencyKey, idempotencyValue, 24*time.Hour); err != nil {
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal idempotency value: %w", err)
+	}
+	if setErr := uc.idempotencyStore.Set(ctx, idempotencyKey, idempotencyValue, 24*time.Hour); setErr != nil {
 		// Non-fatal: log but don't fail
-		_ = err
+		_ = setErr
 	}
 
 	// Step 6: Publish event via channel
