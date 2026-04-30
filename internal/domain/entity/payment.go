@@ -50,9 +50,13 @@ func NewPayment(
 	if provider == "" {
 		return nil, ErrProviderRequired
 	}
-	if metadata == nil {
-		metadata = make(map[string]any)
+
+	// Copy caller's map to prevent external mutation after creation.
+	meta := make(map[string]any, len(metadata))
+	for k, v := range metadata {
+		meta[k] = v
 	}
+
 	now := time.Now().UTC()
 	return &Payment{
 		id:          uuid.New(),
@@ -61,7 +65,7 @@ func NewPayment(
 		status:      valueobject.PaymentStatusPending,
 		provider:    provider,
 		description: description,
-		metadata:    metadata,
+		metadata:    meta,
 		createdAt:   now,
 		updatedAt:   now,
 	}, nil
@@ -110,6 +114,9 @@ func (p *Payment) Transition(next valueobject.PaymentStatus) error {
 // AddTransaction appends a transaction to the payment and bumps updatedAt.
 // Transactions are owned by the payment aggregate — never persisted independently.
 func (p *Payment) AddTransaction(t *Transaction) {
+	if t == nil {
+		return
+	}
 	p.transactions = append(p.transactions, t)
 	p.updatedAt = time.Now().UTC()
 }
@@ -121,7 +128,21 @@ func (p *Payment) Money() valueobject.Money          { return p.money }
 func (p *Payment) Status() valueobject.PaymentStatus { return p.status }
 func (p *Payment) Provider() string                  { return p.provider }
 func (p *Payment) Description() string               { return p.description }
-func (p *Payment) Metadata() map[string]any          { return p.metadata }
-func (p *Payment) Transactions() []*Transaction      { return p.transactions }
 func (p *Payment) CreatedAt() time.Time              { return p.createdAt }
 func (p *Payment) UpdatedAt() time.Time              { return p.updatedAt }
+
+// Metadata returns a shallow copy of the payment metadata to prevent external mutation.
+func (p *Payment) Metadata() map[string]any {
+	cp := make(map[string]any, len(p.metadata))
+	for k, v := range p.metadata {
+		cp[k] = v
+	}
+	return cp
+}
+
+// Transactions returns a shallow copy of the transactions slice to prevent external mutation.
+func (p *Payment) Transactions() []*Transaction {
+	cp := make([]*Transaction, len(p.transactions))
+	copy(cp, p.transactions)
+	return cp
+}

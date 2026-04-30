@@ -6,6 +6,7 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -102,17 +103,28 @@ func (uc *CreatePaymentUseCase) Execute(ctx context.Context, input CreatePayment
 
 	// Step 3: Persist payment
 	if err := uc.paymentRepo.Save(ctx, payment); err != nil {
+		if errors.Is(err, port.ErrDuplicateExternalID) {
+			payment, err := uc.paymentRepo.FindByExternalID(ctx, input.ExternalID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch existing payment after duplicate error: %w", err)
+			}
+			return toCreatePaymentOutput(payment), nil
+		}
 		return nil, fmt.Errorf("failed to save payment: %w", err)
 	}
 
 	// Step 4: Save outbox event (Outbox Pattern — event persisted with payment)
-	payload, _ := json.Marshal(map[string]any{
+	payload, err := json.Marshal(map[string]any{
 		"payment_id":  payment.ID(),
 		"external_id": payment.ExternalID(),
 		"amount":      payment.Money().Amount(),
 		"currency":    payment.Money().Currency().String(),
 		"status":      payment.Status().String(),
 	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal outbox payload: %w", err)
+	}
 
 	outboxMsg := &port.OutboxMessage{
 		ID:            uuid.New(),
@@ -126,7 +138,7 @@ func (uc *CreatePaymentUseCase) Execute(ctx context.Context, input CreatePayment
 	}
 
 	// Step 5: Set idempotency key in Redis
-	idempotencyValue, _ := json.Marshal(payment.ID())
+	idempotencyValue, err := json.Marshal(payment.ID())
 	if err := uc.idempotencyStore.Set(ctx, idempotencyKey, idempotencyValue, 24*time.Hour); err != nil {
 		// Non-fatal: log but don't fail
 		_ = err

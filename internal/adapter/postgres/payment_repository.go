@@ -11,9 +11,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ademarthiago/payment-gateway/internal/domain/entity"
+	"github.com/ademarthiago/payment-gateway/internal/domain/port"
 	"github.com/ademarthiago/payment-gateway/internal/domain/valueobject"
 )
 
@@ -42,6 +44,13 @@ func (r *PaymentRepository) Save(ctx context.Context, p *entity.Payment) error {
 		p.Status().String(), p.Provider(), p.Description(), metadata,
 		p.CreatedAt(), p.UpdatedAt(),
 	)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return port.ErrDuplicateExternalID
+		}
+		return fmt.Errorf("failed to save payment: %w", err)
+	}
 	return err
 }
 
@@ -110,14 +119,22 @@ func scanPayment(row pgx.Row) (*entity.Payment, error) {
 		return nil, fmt.Errorf("failed to scan payment: %w", err)
 	}
 	var metadata map[string]any
-	_ = json.Unmarshal(metadataRaw, &metadata)
+
+	if err := json.Unmarshal(metadataRaw, &metadata); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+	}
 	money, err := valueobject.NewMoney(amount, valueobject.Currency(currency))
 	if err != nil {
 		return nil, fmt.Errorf("failed to build money: %w", err)
 	}
+
+	paymentstatus := valueobject.PaymentStatus(status)
+	if err := paymentstatus.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid payment status in DB: %w", err)
+	}
 	return entity.ReconstitutPayment(
 		id, externalID, money,
-		valueobject.PaymentStatus(status),
+		paymentstatus,
 		provider, description, metadata, nil,
 		createdAt, updatedAt,
 	), nil

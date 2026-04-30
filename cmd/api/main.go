@@ -90,7 +90,7 @@ func main() {
 			interval = time.Duration(n) * time.Second
 		}
 	}
-	outboxWorker := event.NewOutboxWorker(outboxRepo, publisher, interval)
+	outboxWorker := event.NewOutboxWorker(outboxRepo, publisher, interval, event.DefaultOutboxBatchSize)
 
 	// --- Use Cases ---
 	createPaymentUC := usecase.NewCreatePaymentUseCase(paymentRepo, outboxRepo, idempotencyStore, publisher)

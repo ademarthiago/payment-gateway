@@ -163,7 +163,12 @@ All the wiring happens in `main.go`. The sequence is:
 paymentRepo := postgres.NewPaymentRepository(pool)
 outboxRepo  := postgres.NewOutboxRepository(pool)
 idemStore   := redis.NewIdempotencyStore(client)
-publisher   := event.NewChannelPublisher()
+
+// Publisher and Dispatcher share the same buffered channel (size 256).
+// The publisher gets the write-end, the dispatcher gets the read-end.
+eventCh    := make(chan port.Event, 256)
+publisher  := event.NewChannelPublisher(eventCh)
+dispatcher := event.NewDispatcher(eventCh)
 
 // Inject into use cases through port interfaces
 createUC := usecase.NewCreatePaymentUseCase(
@@ -304,7 +309,7 @@ Simple read path. Two methods:
 - `ExecuteByID(ctx, uuid)` — used by `GET /api/v1/payments/{id}`
 - `ExecuteByExternalID(ctx, externalID)` — available for integrators who want to look up by their own reference
 
-The response includes the full transaction history. If a payment has been charged and then refunded, you'll see both transactions.
+> **Note:** `FindByID` currently returns the payment with a `nil` transactions slice — the postgres adapter doesn't load transactions in the same query, and `TransactionRepository` has no implementation yet. The `transactions` array in the response will always be empty until this is implemented.
 
 ### ProcessRefund
 
@@ -361,7 +366,8 @@ The naive fix — "just wrap them in a transaction" — doesn't work because you
 │  │   record)    │    │  status=pending          │    │
 │  └──────────────┘    └────────────┬─────────────┘    │
 │         ↑                        │                  │
-│    Same write                     │                  │
+│  Sequential writes               │                  │
+│  (same request, not same txn)    │                  │
 └──────────────────────────────────┼──────────────────┘
                                    │
                         ┌──────────▼──────────┐
@@ -378,7 +384,7 @@ The naive fix — "just wrap them in a transaction" — doesn't work because you
                         └─────────────────────┘
 ```
 
-The outbox row and the payment row are written in the same database operation. If the server crashes, when it comes back up the outbox worker finds the pending event and delivers it. The event is never lost.
+The outbox row is written right after the payment row, in the same request flow — but as two separate SQL statements, not a single atomic transaction. This means there's a small crash window: if the process dies between `paymentRepo.Save()` and `outboxRepo.Save()`, you'll have a payment without an outbox event. In practice this window is tiny, and the idempotency key prevents a double charge on retry. A future improvement would be to wrap both inserts in a single PostgreSQL transaction to close this gap entirely.
 
 **Outbox status flow:**
 
@@ -398,11 +404,11 @@ pending → failed      (after delivery error, increments attempts)
 
 There are actually two delivery paths:
 
-1. **Immediate (channel)**: When a use case publishes an event, it goes to a Go channel right away. If everything is fine, the event is consumed immediately. Fast path.
+1. **Immediate (channel)**: When a use case publishes an event, it goes into a buffered Go channel (size 256). If the dispatcher is keeping up, the event is consumed right away. Fast path, no DB polling involved.
 
-2. **Durable (outbox)**: The same event is also written to the outbox table. The outbox worker guarantees delivery even if the immediate channel publish failed or the process crashed.
+2. **Durable (outbox)**: The same event is also written to the outbox table. The outbox worker guarantees delivery even if the process crashed before the channel was drained, or if the channel was full and the publish was silently dropped.
 
-This means events can be delivered twice — the downstream handlers need to be idempotent themselves. That's a known trade-off with at-least-once delivery.
+This means events can be delivered twice — the downstream handlers must be idempotent. That's a known trade-off with at-least-once delivery.
 
 ---
 
@@ -506,7 +512,49 @@ func (p *StripeProvider) Refund(ctx context.Context, tx *entity.Transaction) (*p
 }
 ```
 
-### Step 2: Wire it in main.go
+### Step 2: Update the use case to accept and call the provider
+
+The `PaymentProvider` port is defined but not yet injected into any use case. You'll need to add it:
+
+In `internal/usecase/create_payment.go`:
+
+```go
+type CreatePaymentUseCase struct {
+    paymentRepo      port.PaymentRepository
+    outboxRepo       port.OutboxRepository
+    idempotencyStore port.IdempotencyStore
+    eventPublisher   port.EventPublisher
+    provider         port.PaymentProvider  // ← add this
+}
+
+func NewCreatePaymentUseCase(
+    paymentRepo port.PaymentRepository,
+    outboxRepo port.OutboxRepository,
+    idempotencyStore port.IdempotencyStore,
+    eventPublisher port.EventPublisher,
+    provider port.PaymentProvider,        // ← add this
+) *CreatePaymentUseCase { ... }
+```
+
+Then call `provider.Charge()` inside `Execute()` after the payment is saved:
+
+```go
+resp, err := uc.provider.Charge(ctx, port.ProviderRequest{
+    ExternalID:  payment.ExternalID(),
+    Amount:      payment.Money().Amount(),
+    Currency:    payment.Money().Currency(),
+    Description: payment.Description(),
+})
+if err != nil {
+    _ = payment.Transition(valueobject.PaymentStatusFailed)
+    _ = uc.paymentRepo.Update(ctx, payment)
+    return nil, fmt.Errorf("charge failed: %w", err)
+}
+_ = payment.Transition(valueobject.PaymentStatusProcessing)
+_ = uc.paymentRepo.Update(ctx, payment)
+```
+
+### Step 3: Wire it in main.go
 
 ```go
 var provider port.PaymentProvider
@@ -525,7 +573,7 @@ createUC := usecase.NewCreatePaymentUseCase(
 )
 ```
 
-### Step 3: Add the env var
+### Step 4: Add the env var
 
 In `.env.example`:
 ```
@@ -533,11 +581,11 @@ PAYMENT_PROVIDER=stripe
 STRIPE_API_KEY=sk_test_...
 ```
 
-### Step 4: Add a unit test
+### Step 5: Add a unit test
 
-Create `internal/adapter/stripe/provider_test.go` with a mock HTTP server or Stripe's test mode. The use case tests don't need to change — they already use `port.PaymentProvider` through a mock.
+Create `internal/adapter/stripe/provider_test.go` with a mock HTTP server or Stripe's test mode. For the use case test, pass a mock that satisfies `port.PaymentProvider` — the rest of the test setup doesn't change.
 
-That's it. No domain changes, no use case changes, no HTTP handler changes.
+The HTTP handler and domain layer need no changes.
 
 ---
 
@@ -907,7 +955,7 @@ All errors return the same shape:
 | `"invalid request body"` | JSON parse failure |
 | `"external_id is required"` | Missing `external_id` field |
 | `"amount must be greater than zero"` | `amount <= 0` |
-| `"unsupported currency: XYZ"` | Currency not in `[BRL, USD, EUR]` |
+| `"invalid currency: XYZ"` | Currency not in `[BRL, USD, EUR]` |
 | `"payment not found"` | UUID doesn't exist in DB |
 | `"cannot transition from X to Y"` | Invalid state machine transition |
 | `"invalid payment id"` | Path parameter is not a valid UUID |
@@ -992,7 +1040,7 @@ There is no conversion — what you send is what's stored and returned.
 | `USD` | US Dollar |
 | `EUR` | Euro |
 
-Sending any other code returns a 422 with `"unsupported currency: XYZ"`.
+Sending any other code returns a 422 with `"invalid currency: XYZ"`.
 
 ---
 
@@ -1171,7 +1219,9 @@ This project correctly implements the structural patterns (hexagonal arch, outbo
 - **Authentication** — the API currently has no auth. Add API key or JWT middleware at the router level.
 - **Rate limiting** — chi has middleware for this, or put a gateway in front.
 - **Real payment provider** — implement the `PaymentProvider` port for Stripe, PagSeguro, or PIX.
+- **Transaction persistence** — `TransactionRepository` is defined as a port but has no postgres implementation yet. `paymentRepo.Update()` currently only persists `status` and `metadata` — the `Transaction` objects added via `AddTransaction()` are **not saved to the DB**. The `transactions` table (migration 000002) and the domain model are ready; the adapter just needs to be written and wired in.
+- **Outbox atomicity** — the payment write and the outbox write are two separate SQL statements, not a single transaction. Wrapping them in a `pgx.Tx` would close the crash window between the two.
 - **Outbox cleanup** — processed events accumulate forever. Add a job to archive or delete old `processed` rows.
 - **Metrics** — Prometheus instrumentation is straightforward to add at the middleware layer.
 - **Secrets management** — don't put real credentials in `.env`. Use Vault, AWS Secrets Manager, or equivalent.
-- **Partial refunds** — the current model refunds the full payment. If you need partial refunds, the state machine needs a new state and the repository needs to handle it.
+- **Partial refunds** — the current model transitions the full payment to `refunded`. If you need partial refunds, the state machine needs a new state and the repository needs to handle it.
